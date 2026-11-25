@@ -78,6 +78,14 @@ def end_embed(state):
     }
 
 
+def delete_alert(message_id):
+    try:
+        http("DELETE", f"{WEBHOOK}/messages/{message_id}")
+    except urllib.error.HTTPError as e:
+        if e.code != 404:  # 404 = déjà supprimée (par le bot ou à la main)
+            print("Impossible de supprimer l'alerte :", e.code)
+
+
 def main():
     missing = [k for k in ("TWITCH_CLIENT_ID", "TWITCH_CLIENT_SECRET", "DISCORD_WEBHOOK_URL") if not os.environ.get(k)]
     if missing:
@@ -103,6 +111,8 @@ def main():
     if stream and stream["id"] != state.get("stream_id") and age_min < FALLBACK_MIN:
         print(f"Live lancé il y a {age_min:.0f} min : on laisse le bot poster l'alerte")
     elif stream and stream["id"] != state.get("stream_id"):
+        if state.get("live") and state.get("message_id"):  # ancien live jamais fermé (relance du stream)
+            delete_alert(state["message_id"])
         user = twitch(f"users?login={LOGIN}")[0]
         body = {"content": f"<@&{ROLE}> 🔴 **{user['display_name']}** vient de lancer le live !" if ROLE else None,
                 "embeds": [live_embed(stream, user)],
@@ -116,10 +126,7 @@ def main():
         print("Toujours en live")
     elif state.get("live"):
         if state.get("message_id"):
-            try:
-                http("PATCH", f"{WEBHOOK}/messages/{state['message_id']}", {"content": None, "embeds": [end_embed(state)]})
-            except urllib.error.HTTPError as e:
-                print("Impossible de modifier l'alerte :", e.code)
+            delete_alert(state["message_id"])  # live fini : l'alerte disparaît
         state = {"live": False, "last_stream_id": state.get("stream_id")}
         print("Live terminé")
     else:

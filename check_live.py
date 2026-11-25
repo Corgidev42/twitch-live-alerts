@@ -22,6 +22,7 @@ LOGIN = os.environ.get("TWITCH_LOGIN", "mantate_").lower()
 ROLE = os.environ.get("PING_ROLE_ID", "")
 WEBHOOK = os.environ.get("DISCORD_WEBHOOK_URL", "")
 PURPLE, GREY = 0x9146FF, 0x4F545C
+FALLBACK_MIN = 6  # le bot poste en ~1 min ; GitHub ne prend le relais que s'il n'a rien posté après 6 min
 
 
 def http(method, url, body=None, headers=None):
@@ -98,15 +99,18 @@ def main():
     stream = streams[0] if streams else None
     month = datetime.now(timezone.utc).strftime("%Y-%m")
 
-    if stream and stream["id"] != state.get("stream_id"):
+    age_min = (datetime.now(timezone.utc) - datetime.fromisoformat(stream["started_at"].replace("Z", "+00:00"))).total_seconds() / 60 if stream else 0
+    if stream and stream["id"] != state.get("stream_id") and age_min < FALLBACK_MIN:
+        print(f"Live lancé il y a {age_min:.0f} min : on laisse le bot poster l'alerte")
+    elif stream and stream["id"] != state.get("stream_id"):
         user = twitch(f"users?login={LOGIN}")[0]
         body = {"content": f"<@&{ROLE}> 🔴 **{user['display_name']}** vient de lancer le live !" if ROLE else None,
                 "embeds": [live_embed(stream, user)],
                 "allowed_mentions": {"roles": [ROLE] if ROLE else []}}
         msg = http("POST", WEBHOOK + "?wait=true", body)
         state = {"live": True, "stream_id": stream["id"], "message_id": msg["id"], "started_at": stream["started_at"],
-                 "title": stream["title"], "game": stream.get("game_name")}
-        print("Alerte postée :", stream["title"])
+                 "title": stream["title"], "game": stream.get("game_name"), "by": "github"}
+        print("Alerte postée (secours GitHub) :", stream["title"])
     elif stream:
         state.update(title=stream["title"], game=stream.get("game_name"))
         print("Toujours en live")

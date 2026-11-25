@@ -1,10 +1,6 @@
 {
- "live": true,
- "stream_id": "318475885923",
- "message_id": "1575209282973081621",
- "started_at": "2026-11-25T17:58:26Z",
- "title": "Petite game de CS en sah la famille",
- "game": "Counter-Strike",
- "by": "bot",
+ "live": false,
+ "last_stream_id": "318475885923",
+ "ended_at": 1795636386,
  "heartbeat": "2026-11"
 }
